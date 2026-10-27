@@ -1144,3 +1144,49 @@ def get_home():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
+
+
+@app.get("/v3-test/search")
+async def test_moviebox_v3_search(
+    q: str = Query("Avatar", min_length=1),
+    page: int = Query(1, ge=1)
+):
+    """
+    Diagnostic endpoint for testing moviebox-api-v3.
+    Tests package search functionality without changing
+    the existing MovieBox API endpoints.
+    """
+    try:
+        from fastapi.encoders import jsonable_encoder
+        from moviebox_api_v3.v3.constants import SubjectType
+        from moviebox_api_v3.v3.core import Search
+        from moviebox_api_v3.v3.http_client import MovieBoxHttpClient
+
+        async with MovieBoxHttpClient(timeout=20) as client:
+            search_api = Search(
+                client_session=client,
+                query=q,
+                subject_type=SubjectType.ALL,
+                page=page,
+                per_page=10
+            )
+
+            result = await search_api.get_content()
+
+        return {
+            "success": True,
+            "package": "moviebox-api-v3",
+            "version": "3.0.2",
+            "query": q,
+            "page": page,
+            "result": jsonable_encoder(result)
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "package": "moviebox-api-v3",
+            "query": q,
+            "error_type": type(exc).__name__,
+            "error": str(exc)[:1000]
+    }
